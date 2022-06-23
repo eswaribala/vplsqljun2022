@@ -1,0 +1,339 @@
+declare
+ v_job varchar2(25);
+begin
+
+select job into v_job from emp where empno=7878;
+
+end;
+/
+=============================================
+%type attribute
+
+declare
+ v_job emp.job%TYPE;
+begin
+
+select job into v_job from emp where empno=7878;
+
+end;
+/
+=================================================
+Comments
+--Exercise to learn scalar variables and Type Attribute
+
+declare
+ v_job emp.job%TYPE;
+begin
+/*
+Retrieve data from emp table
+and store it in variable
+*/
+select job into v_job from emp where empno=7878;
+
+
+
+end;
+/
+=====================================================
+--Exercise to Date initialization
+
+declare
+ v_job emp.job%TYPE;
+ v_date DATE := TO_DATE('JAN-12-2022', 'MON-DD-YYYY');
+begin
+/*
+Retrieve data from emp table
+and store it in variable
+*/
+select job into v_job from emp where empno=7878;
+
+
+
+end;
+/
+
+================================================
+--Exercise to scope of the variable
+<<outer>>
+declare
+v_job varchar2(50):='Developer';
+begin
+declare
+ v_job emp.job%TYPE;
+ v_date DATE := TO_DATE('JAN-12-2022', 'MON-DD-YYYY');
+begin
+/*
+Retrieve data from emp table
+and store it in variable
+*/
+select job into v_job from emp where empno=7878;
+
+outer.v_job:='Admin';
+
+end;
+end;
+/
+============================================
+<<outer>>
+DECLARE
+  v_sal      NUMBER(7,2) := 60000;
+  v_comm     NUMBER(7,2) := v_sal * 0.20;
+  v_message  VARCHAR2(255) := ' eligible for commission';
+BEGIN 
+  DECLARE
+    	v_sal		NUMBER(7,2) := 50000;
+    	v_comm  	NUMBER(7,2) := 0;
+    	v_total_comp	NUMBER(7,2) := v_sal + v_comm;
+  BEGIN 
+    	v_message := 'CLERK not'||v_message;
+    	outer.v_comm := v_sal * 0.30; 
+     DBMS_OUTPUT.PUT_LINE('Commision'||outer.v_comm);
+  END;
+    v_message := 'SALESMAN'||v_message;
+  DBMS_OUTPUT.PUT_LINE('Message'||v_message);
+END;
+/
+======================================================
+--Exercise to test the value
+<<outer>>
+declare
+v_job varchar2(50):='Developer';
+
+begin
+declare
+ v_empno emp.empno%TYPE:=7878; 
+ v_job emp.job%TYPE;
+ v_date DATE := TO_DATE('JAN-12-2022', 'MON-DD-YYYY');
+ v_valid BOOLEAN;
+begin
+/*
+Retrieve data from emp table
+and store it in variable
+*/
+v_valid	:= (v_empno IS NOT NULL);
+
+select job into v_job from emp where empno=v_empno;
+
+outer.v_job:='Admin';
+
+end;
+end;
+/
+===============================================
+Multiple Variables INTO
+begin
+ declare
+   v_empno emp.empno%TYPE:=7878; 
+   v_job emp.job%TYPE;
+   v_hiredate emp.hiredate%TYPE;
+   v_date DATE := TO_DATE('JAN-12-2022', 'MON-DD-YYYY');
+   v_valid BOOLEAN;
+ begin
+ /*
+ Retrieve data from emp table
+ and store it in variable
+ */
+  v_valid	:= (v_empno IS NOT NULL);
+
+  select job,hiredate into v_job,v_hiredate from emp where empno=v_empno;
+
+  outer.v_job:='Admin';
+
+ end;
+end;
+/
+====================================================
+(solved)
+DECLARE
+	v_empno employees.employee_id%TYPE := 120;
+BEGIN
+MERGE INTO copy_emp c
+     USING employees e
+     ON (e.employee_id = v_empno)
+   WHEN MATCHED THEN
+     UPDATE SET
+       c.salary     = e.salary,
+       c.COMMISSION_PCT  = e.COMMISSION_PCT
+     
+   WHEN NOT MATCHED THEN
+     INSERT VALUES(e.employee_id, e.salary,e.COMMISSION_PCT);
+END;
+/
+=================================================
+-- conditional statement
+DECLARE
+ sales NUMBER(8,2) := 12100;
+ quota NUMBER(8,2) := 10000;
+ bonus NUMBER(6,2);
+ emp_id NUMBER(6) := 120;
+ BEGIN
+  IF sales > (quota + 200) THEN
+    bonus := (sales - quota)/4;
+   ELSE
+   bonus := 50;
+  END IF;
+
+  UPDATE employees
+   SET salary = salary + bonus
+   WHERE employee_id = emp_id;
+END;
+/
+
+=====================================================
+DECLARE
+ sales NUMBER(8,2) := 20000;
+ bonus NUMBER(6,2);
+ emp_id NUMBER(6) := 120;
+ BEGIN
+IF sales > 50000 THEN
+ bonus := 1500;
+ELSIF sales > 35000 THEN
+ bonus := 500;
+ ELSE
+ bonus := 100;
+ END IF;
+
+ UPDATE trader
+ SET location = location||'hyderabad'||bonus
+ WHERE traderid = 1001;
+ END;
+ /
+================================================
+DECLARE
+  v_deptno Number(3);
+  BEGIN
+  v_deptno := 1;
+
+  CASE v_deptno
+  WHEN  1 THEN DBMS_OUTPUT.PUT_LINE('Accounts');
+  WHEN  2 THEN DBMS_OUTPUT.PUT_LINE('Facility');
+  WHEN  3 THEN DBMS_OUTPUT.PUT_LINE('Stores');
+  WHEN  4 THEN DBMS_OUTPUT.PUT_LINE('HR');
+  WHEN  5 THEN DBMS_OUTPUT.PUT_LINE('Resource Pool');
+  ELSE DBMS_OUTPUT.PUT_LINE('No such department');
+ END CASE;
+ END;
+ /
+
+=================================================
+Case with Exception
+Using EXCEPTION Instead of ELSE Clause in CASE Statement
+DECLARE
+  v_deptno Number(3);
+  BEGIN
+   v_deptno := 10;
+
+  CASE v_deptno
+   WHEN  1 THEN DBMS_OUTPUT.PUT_LINE('Accounts');
+   WHEN  2 THEN DBMS_OUTPUT.PUT_LINE('Facility');
+   WHEN  3 THEN DBMS_OUTPUT.PUT_LINE('Stores');
+   WHEN  4 THEN DBMS_OUTPUT.PUT_LINE('HR');
+   WHEN  5 THEN DBMS_OUTPUT.PUT_LINE('Resource Pool');  
+  END CASE;
+
+ EXCEPTION
+  WHEN CASE_NOT_FOUND THEN
+  DBMS_OUTPUT.PUT_LINE('No such department');
+ END;
+ /
+==================================================================
+Basic loop
+DECLARE
+  v_bankId       bank.bankid%TYPE;
+  v_counter		   NUMBER(2) := 1;
+  v_bankName     bank.bankname%TYPE := 'HDFC';
+BEGIN
+  SELECT MAX(bankid) INTO v_bankId FROM bank;
+  LOOP
+    INSERT INTO bank(bankid, bankname)   
+    VALUES((v_bankId + v_counter) , v_bankName || v_counter);
+    v_counter := v_counter + 1;
+    EXIT WHEN v_counter > 3;
+  END LOOP;
+END;
+/
+===================================================
+While loop
+
+DECLARE
+  v_bankId       bank.bankid%TYPE;
+  v_counter		   NUMBER(2) := 1;
+  v_bankName     bank.bankname%TYPE := 'HDFC';
+BEGIN
+  SELECT MAX(bankid) INTO v_bankId FROM bank;
+  WHILE v_counter <= 3 LOOP
+    INSERT INTO bank(bankid, bankname)   
+    VALUES((v_bankId + v_counter) , v_bankName || v_counter);
+    v_counter := v_counter + 1;
+   
+  END LOOP;
+END;
+/
+==========================================
+While loop
+
+DECLARE
+  v_bankId       bank.bankid%TYPE;
+  v_counter		   NUMBER(2) := 1;
+  v_bankName     bank.bankname%TYPE := 'DEUTSCHE';
+BEGIN
+  SELECT MAX(bankid) INTO v_bankId FROM bank;
+  FOR i IN 1..5 LOOP
+    INSERT INTO bank(bankid, bankname)   
+    VALUES((v_bankId + v_counter) , v_bankName || v_counter);
+    v_counter := v_counter + 1;
+   
+  END LOOP;
+END;
+/
+======================================================
+--Nested loop and label
+DECLARE
+ v_count Number(3);
+ v_tradercount Number(3);
+ s PLS_INTEGER := 0;
+ i PLS_INTEGER := 0;
+ j PLS_INTEGER;
+BEGIN
+ select count(bankid) into v_count from bank;
+ <<outer_loop>>
+  LOOP
+   i := i + 1;
+   j := 0;
+   select count(*) into v_tradercount from trader; 
+   <<inner_loop>>
+   LOOP
+    j := j + 1;
+    s := s + i * j; -- Sum several traders
+   EXIT inner_loop WHEN (j > v_tradercount);
+  EXIT outer_loop WHEN (i > v_count);
+  END LOOP inner_loop;
+ END LOOP outer_loop;
+ DBMS_OUTPUT.PUT_LINE('The sum of products equals: ' || TO_CHAR(s));
+END;
+/
+======================================================
+SET SERVEROUTPUT ON
+DECLARE
+   --custom data type
+   TYPE emp_table_type is table of
+      emp%ROWTYPE INDEX BY BINARY_INTEGER;
+   v_emp_table  emp_table_type;
+   v_count       NUMBER(3) := 18; 
+BEGIN
+  
+  FOR i IN 10..v_count
+  LOOP
+	  SELECT * INTO v_emp_table(i) FROM emp
+	  WHERE empno = i;
+  END LOOP;
+  FOR i IN v_emp_table.FIRST..v_emp_table.LAST 
+  LOOP
+     DBMS_OUTPUT.PUT_LINE(v_emp_table(i).empno || v_emp_table(i).empname || v_emp_table(i).salary || v_emp_table(i).deptno);
+  END LOOP;
+END; 
+/
+======================================================
+
+
+
