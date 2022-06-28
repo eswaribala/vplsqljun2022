@@ -494,5 +494,493 @@ END LOOP;
 END;
 /
 ================================================================
+create or replace PROCEDURE new_trader_proc
+  (p_traderid  IN trader.traderid%TYPE
+                   DEFAULT 57,  
+   p_tradername   IN trader.name%TYPE,
+   p_tradinglimit IN trader.tradinglimit%TYPE DEFAULT 25000,
+   p_bankid   IN trader.bankid%TYPE DEFAULT 1, 
+   p_email IN trader.email%TYPE,
+   p_location IN trader.location%TYPE  
+    )
+IS
+BEGIN
+  INSERT INTO trader(traderid,
+            name, tradinglimit,bankid,email,location)
+  VALUES ((p_traderid + 100), p_tradername, p_tradinglimit,p_bankid, p_email,p_location);  
+  
+
+END new_trader_proc;
+------------------------------------------------------------------------
+
+begin
+
+new_trader_proc(p_traderid =>975, p_tradername=>'Jaya', p_tradinglimit=>35000,p_bankid=>104,p_email=>'jaya@veb.com',p_location=>'chennai');
+
+end;
+/
+===========================================================================
+create or replace procedure emp_out_proc (p_empno IN emp.empno%TYPE, p_salary out emp.salary%TYPE)
+IS
+begin
+ select salary into p_salary from emp where empno=p_empno;
+end emp_out_proc;
+/
+
+==============================================
+procedure execution
+
+declare 
+v_salary emp.salary%TYPE;
+begin
+emp_out_proc(11,v_salary);
+ DBMS_OUTPUT.PUT_LINE('Salary='||v_salary);
+end;
+/
+=========================================
+CREATE OR REPLACE PROCEDURE query_emp
+  (p_id      IN   emp.empno%TYPE,
+   p_name    OUT  emp.empname%TYPE,
+   p_salary  OUT  emp.salary%TYPE,
+   p_deptno    OUT  emp.deptno%TYPE)
+IS
+BEGIN
+  SELECT   empname, salary, deptno
+   INTO    p_name, p_salary, p_deptno
+   FROM    emp
+   WHERE   empno = p_id;
+END query_emp;
+/
+==================================================
+procedure execution
+
+declare 
+v_empname emp.empname%TYPE;
+v_salary emp.salary%TYPE;
+v_deptno emp.deptno%TYPE;
+begin
+query_emp(11,v_empname,v_salary,v_deptno);
+ DBMS_OUTPUT.PUT_LINE('Employee Name'||v_empname||'getting Salary as'||v_salary||'from department'||v_deptno);
+end;
+/
+=================================================================
+CREATE OR REPLACE PROCEDURE query_trader
+  (p_data IN OUT NUMBER)
+IS
+BEGIN
+  select tradinglimit into p_data from trader where traderid=p_data; 
+END query_trader;
+/
+===========================================================
+declare 
+v_data NUMBER(5) :=3;
+begin
+query_trader(v_data);
+ DBMS_OUTPUT.PUT_LINE('Trading Limit='||v_data);
+end;
+/
+=========================================================
+parameter passing methods order,named,comibnation
+
+CREATE OR REPLACE PROCEDURE add_dept
+  (
+   p_deptno IN dept.deptno%TYPE,
+   p_name  IN dept.dname%TYPE
+   				DEFAULT 'unknown',
+   p_loc   IN dept.loc%TYPE
+   				DEFAULT 'CHENNAI')
+IS
+BEGIN
+  INSERT INTO dept(deptno,
+            dname, loc)
+  VALUES (p_deptno, p_name, p_loc);
+END add_dept;
+/
+============================================================
+BEGIN
+  add_dept(4000);
+  add_dept (4001,'TRAINING', 'Bhuvaneswar');
+  add_dept ( p_loc => 'Bangalore', p_name =>'EDUCATION',p_deptno=>4002);  
+END;
+/
+========================================================
+sub programs
+CREATE OR REPLACE PROCEDURE delete_emp
+  (p_id  IN  emp.empno%TYPE)
+IS
+  PROCEDURE log_exec
+  IS
+  BEGIN
+    INSERT INTO log_table (user_id, log_date)
+    VALUES (USER, SYSDATE);
+  END log_exec;
+BEGIN
+  DELETE FROM emp
+  WHERE empno = p_id;
+  log_exec;
+END delete_emp;
+/
+=====================================================
+BEGIN
+  delete_emp(8022);  
+END;
+/
+==========================================
+Invoking procedure from another procedure
+
+CREATE OR REPLACE PROCEDURE raise_salary
+  (p_id IN emp.empno%TYPE)
+IS
+BEGIN
+  UPDATE emp
+  SET    salary = salary * 1.10
+  WHERE  emp.empno = p_id;
+END raise_salary;
+/
+
+CREATE OR REPLACE PROCEDURE process_emps
+IS
+   CURSOR emp_cursor IS
+    SELECT empno
+    FROM   emp;
+BEGIN
+   FOR emp_rec IN emp_cursor 
+   LOOP
+    raise_salary(emp_rec.empno);
+   END LOOP;    
+   COMMIT;
+END process_emps;
+/
+
+Invoke procedure
+BEGIN
+ process_emps();
+END;
+====================================================
+Simple Exception
+DECLARE
+   stock_price NUMBER := 9.73;
+   net_earnings NUMBER := 0;
+   pe_ratio NUMBER;
+BEGIN
+-- Calculation might cause division-by-zero error.
+   pe_ratio := stock_price / net_earnings;
+   DBMS_OUTPUT.PUT_LINE('Price/earnings ratio = ' || pe_ratio);
+EXCEPTION  -- exception handlers begin
+-- Only one of the WHEN blocks is executed.
+   WHEN ZERO_DIVIDE THEN  -- handles 'division by zero' error
+      DBMS_OUTPUT.PUT_LINE('Company must have had zero earnings.');
+      pe_ratio := NULL;
+   WHEN OTHERS THEN  -- handles all other errors
+      DBMS_OUTPUT.PUT_LINE('Some other kind of error occurred.');
+      pe_ratio := NULL;
+END;  -- exception handlers and block end here
+/
+====================================================
+DECLARE
+   v_salary emp.salary%TYPE := 0;
+   v_count NUMBER := 0;
+   v_avgsal NUMBER; 
+BEGIN
+-- Calculation might cause division-by-zero error.
+   select salary into v_salary from emp where empno=8141;
+    v_avgsal:= v_salary / v_count;
+   DBMS_OUTPUT.PUT_LINE('Average Salary  = ' || v_avgsal);
+EXCEPTION  -- exception handlers begin
+-- Only one of the WHEN blocks is executed.
+   WHEN ZERO_DIVIDE THEN  -- handles 'division by zero' error
+      DBMS_OUTPUT.PUT_LINE('Average salary is zero gets divided by count');
+      v_avgsal := 0;
+   WHEN OTHERS THEN  -- handles all other errors
+      DBMS_OUTPUT.PUT_LINE('Some other kind of error occurred.');
+      v_avgsal := 0;
+END;  -- exception handlers and block end here
+/
+===============================================
+SELECT COLUMN_NAME FROM USER_TAB_COLS 
+    WHERE TABLE_NAME = 'Trader'
+    AND COLUMN_NAME = UPPER('tradinglimit');
+SELECT OBJECT_NAME FROM USER_OBJECTS
+    WHERE OBJECT_NAME = UPPER('Trader')
+    AND OBJECT_TYPE = 'TABLE';
+
+DECLARE
+   trader_column    VARCHAR(30) := 'tradinglimit';
+   table_name       VARCHAR2(30) := 'Trader123';
+   temp_var         VARCHAR2(30);
+BEGIN
+  temp_var := trader_column;
+  SELECT COLUMN_NAME INTO temp_var FROM USER_TAB_COLS 
+    WHERE TABLE_NAME = 'Trader'
+    AND COLUMN_NAME = UPPER(trader_column);
+-- processing here
+  temp_var := table_name;
+  SELECT OBJECT_NAME INTO temp_var FROM USER_OBJECTS
+    WHERE OBJECT_NAME = UPPER(table_name)
+    AND OBJECT_TYPE = 'TABLE';
+-- processing here
+EXCEPTION
+  -- Catches all 'no data found' errors
+   WHEN NO_DATA_FOUND THEN
+     DBMS_OUTPUT.PUT_LINE
+       ('No Data found for SELECT on ' || temp_var);
+END;
+/
+---------------------------------------------
+DEFINE p_bankid = 45;
+DECLARE
+  e_banks_remaining EXCEPTION;
+  PRAGMA EXCEPTION_INIT 
+    (e_banks_remaining, -2292);
+BEGIN
+  DELETE FROM bank
+  WHERE  bankid = 45;
+  COMMIT;
+EXCEPTION
+  WHEN e_banks_remaining   THEN
+   DBMS_OUTPUT.PUT_LINE ('Cannot remove bank ');
+END;
+/
+
+----------------------------------------
+DECLARE
+   num_tables NUMBER;
+BEGIN
+   SELECT COUNT(*) INTO num_tables FROM USER_TABLES;
+   IF num_tables < 500 THEN
+      /* Issue your own error code (ORA-20101)
+         with your own error message. You need not
+          qualify RAISE_APPLICATION_ERROR with
+          DBMS_STANDARD */
+      RAISE_APPLICATION_ERROR
+        (-20101, 'Expecting at least 1000 tables');
+   ELSE
+      -- Do rest of processing (for nonerror case)
+      NULL;
+   END IF;
+END;
+/
+=============================================
+DECLARE
+   out_of_dept   EXCEPTION;
+   v_deptno NUMBER := 45;
+   v_count NUMBER := 0; 
+BEGIN
+   select count(*) into v_count from emp where deptno = v_deptno;
+   IF v_count < 1 THEN
+      RAISE out_of_dept; -- raise an exception that you defined
+   END IF;
+EXCEPTION
+   WHEN out_of_dept THEN
+      -- handle the error
+      DBMS_OUTPUT.PUT_LINE('Department not exist');
+END;
+/
+======================================
+Error propagation
+DECLARE
+  salary_too_low  EXCEPTION;
+  current_salary NUMBER := 0;
+  min_salary NUMBER := 20000;
+  erroneous_salary NUMBER;
+BEGIN
+  BEGIN  ---------- sub-block begins
+    select salary into current_salary from emp where empno = 4231;
+    IF current_salary < min_salary THEN
+      RAISE salary_too_low;  -- raise the exception
+    END IF;
+  EXCEPTION
+    WHEN salary_too_low THEN
+      -- first step in handling the error
+      DBMS_OUTPUT.PUT_LINE('Salary ' || erroneous_salary ||
+      ' is out of range.');
+      DBMS_OUTPUT.PUT_LINE
+        ('Minimum salary is ' || min_salary || '.');
+      RAISE;  -- reraise the current exception
+  END;  ------------ sub-block ends
+EXCEPTION
+  WHEN salary_too_low THEN
+    -- handle the error more thoroughly
+    erroneous_salary := current_salary;
+    current_salary := min_salary;
+    DBMS_OUTPUT.PUT_LINE('Revising salary from ' || erroneous_salary ||
+       ' to ' || current_salary || '.');
+END;
+/
+=========================================================
+Continue when exception arises
+DECLARE
+  sal_calc NUMBER(8,2) :=0;
+  commission_pct  NUMBER(3,1) := 0;
+BEGIN
+  INSERT INTO emp VALUES (303, 'ajay',25000, 10);
+  BEGIN -- sub-block begins
+    SELECT salary / commission_pct INTO sal_calc
+      FROM emp
+      WHERE empno = 303;
+    EXCEPTION
+      WHEN ZERO_DIVIDE THEN
+        select salary into sal_calc from emp where empno=303;       
+  END; -- sub-block ends
+  INSERT INTO emp VALUES (304, 'vijay',sal_calc/10, 10);
+EXCEPTION
+  WHEN ZERO_DIVIDE THEN
+    NULL;
+END;
+/
+==========================================================
+CREATE PROCEDURE p2_ins_emp(p_deptno NUMBER) IS
+ v_did NUMBER(4);
+BEGIN
+ DBMS_OUTPUT.PUT_LINE('Procedure p2_ins_emp started');
+ INSERT INTO emp VALUES (5001, 'Sunitha', 14500, p_deptno);
+ SELECT deptno INTO v_did FROM emp
+  WHERE empno = 999;
+END;
+/
+CREATE PROCEDURE p1_ins_dept(p_deptno NUMBER, p_dname VARCHAR2, p_loc VARCHAR2)
+IS
+ v_dname VARCHAR2(30); 
+BEGIN
+ DBMS_OUTPUT.PUT_LINE('Main Procedure p1_ins_dept');
+ INSERT INTO dept (deptno,dname,loc) VALUES (p_deptno, p_dname,p_loc);
+ SELECT dname INTO v_dname FROM dept WHERE deptno = p_deptno;
+ DBMS_OUTPUT.PUT_LINE('Inserted department '||v_dname);
+ DBMS_OUTPUT.PUT_LINE('Invoking the procedure p2_ins_emp ...');
+ p2_ins_emp(p_deptno);
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN
+   DBMS_OUTPUT.PUT_LINE('No such dept found for given employee');
+END;
+/
+=====================================
+BEGIN
+
+p1_ins_dept(3001, 'Facility', 'Pune');
+
+END;
+/
+=================================
+DECLARE
+  v_bankname bank.bankname%TYPE;
+  
+  v_traderid trader.traderid%TYPE;
+  v_tradername trader.name%TYPE;
+  
+  p_bankid bank.bankid%TYPE :=-100; 
+  e_no_rows   exception;
+  e_cursorexception exception;
+  
+  CURSOR trader_cursor IS
+        SELECT traderid, name
+        FROM   trader;
+BEGIN
+ 
+    BEGIN
+     
+     SELECT bankname into v_bankname from bank where bankid= p_bankid;    
+    
+
+      OPEN trader_cursor;
+      LOOP
+        IF trader_cursor%NOTFOUND THEN
+            RAISE e_cursorexception;
+        Else
+         FETCH trader_cursor INTO v_traderid, v_tradername;
+         
+                                  
+         DBMS_OUTPUT.PUT_LINE (TO_CHAR(v_traderid) || v_tradername);
+      END IF;                      
+      END LOOP;
+      CLOSE trader_cursor; 
+     END;  
+
+EXCEPTION
+  WHEN e_cursorexception THEN 
+    DBMS_OUTPUT.PUT_LINE('No cursor found');
+  WHEN NO_DATA_FOUND THEN
+       
+       RAISE_APPLICATION_ERROR (-20201,
+         'Bank id is not valid');
+
+END;
+/
+==================================================
+DECLARE
+  v_bankname bank.bankname%TYPE;
+  
+  v_traderid trader.traderid%TYPE;
+  v_tradername trader.name%TYPE;
+  
+  p_bankid bank.bankid%TYPE :=-100; 
+  e_no_rows   exception;
+  e_cursorexception exception;
+  
+  CURSOR trader_cursor IS
+        SELECT traderid, name
+        FROM   trader;
+BEGIN
+ 
+    BEGIN
+     
+     SELECT bankname into v_bankname from bank where bankid= p_bankid;    
+      
+     EXCEPTION
+    
+      WHEN NO_DATA_FOUND THEN
+       
+       DBMS_OUTPUT.PUT_LINE('No such bank found');
+     
+     END; 
+
+     OPEN trader_cursor;
+      LOOP
+        IF trader_cursor%NOTFOUND THEN
+            RAISE e_cursorexception;
+        Else
+         FETCH trader_cursor INTO v_traderid, v_tradername;
+         
+                                  
+         DBMS_OUTPUT.PUT_LINE (TO_CHAR(v_traderid) || v_tradername);
+      END IF;                      
+      END LOOP;
+      CLOSE trader_cursor;  
+
+EXCEPTION
+  WHEN e_cursorexception THEN 
+    DBMS_OUTPUT.PUT_LINE('No cursor found');
 
 
+END;
+/
+===================================================
+function
+
+CREATE OR REPLACE FUNCTION get_sal
+      (p_empno IN emp.empno%TYPE)
+      RETURN NUMBER
+IS
+      v_salary emp.salary%TYPE :=0;
+BEGIN
+      SELECT salary	
+      INTO   v_salary
+      FROM   emp         
+      WHERE  empno = p_empno;
+     RETURN v_salary;
+END get_sal;
+/
+
+execute the function
+select get_sal(8141) from dual;
+===========================================================
+CREATE OR REPLACE FUNCTION email_pack(p_email IN varchar2)
+ RETURN varchar2 IS
+ v_email Trader.email%TYPE;
+BEGIN
+    select substr(email,1,instr(email,'@')-1) into v_email from trader
+         where TraderId=1;
+    RETURN (v_email||'@virtusa.com');
+END email_pack;
+/
+SELECT traderid, name, location, email_pack(email) FROM   trader where TraderId=1;
+=========================================================
