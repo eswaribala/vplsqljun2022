@@ -984,3 +984,1232 @@ END email_pack;
 /
 SELECT traderid, name, location, email_pack(email) FROM   trader where TraderId=1;
 =========================================================
+CREATE OR REPLACE FUNCTION tax(p_value IN NUMBER)
+ RETURN NUMBER IS
+BEGIN
+   RETURN (p_value * 0.08);
+END tax;
+/
+
+select empno,empname,salary, tax(salary) as tax from emp;
+=======================================================
+CREATE OR REPLACE FUNCTION get_email_location
+      (p_traderid  IN trader.traderid%TYPE)
+      RETURN varchar
+IS
+      v_emailloc trader.email%TYPE;
+BEGIN
+      SELECT email||location	
+      INTO   v_emailloc
+      FROM   trader         
+      WHERE  traderid = p_traderid;
+     RETURN v_emailloc;
+END get_email_location;
+/
+===========================================
+SELECT object_name, object_type FROM  user_objects
+WHERE object_type in ('PROCEDURE','FUNCTION') 
+ORDER BY object_name;
+SELECT object_name FROM  user_objects
+WHERE object_type in ('PROCEDURE') 
+ORDER BY object_name;
+======================================
+detecting compilation errors
+show errors;
+
+CREATE OR REPLACE PROCEDURE log_execution
+IS
+BEGIN
+INPUT INTO log_table (user_id, log_date)  					-- wrong
+VALUES (USER, SYSDATE);
+END;
+/
+To get the errors
+
+SELECT line || '/' || position POS, text
+FROM   user_errors
+WHERE  name = 'LOG_EXECUTION'
+ORDER BY line;
+==========================================================
+Ref cursor
+Creating REF Cursor
+
+Create or replace procedure bank_cursor_proc(bank_cursor out sys_refcursor)
+
+IS
+ BEGIN
+     
+      open bank_cursor for
+        SELECT bankid,bankname FROM bank;
+   
+      
+END;
+------------------------------------------------------------------
+Printing Cursor Data
+
+DECLARE
+  v_cursor  SYS_REFCURSOR;
+  
+  v_bankid   bank.bankid%TYPE;
+   v_bankname   bank.bankname%TYPE;
+  
+BEGIN
+  bank_cursor_proc (bank_cursor=>v_cursor);
+            
+  LOOP 
+    FETCH v_cursor
+    INTO  v_bankid, v_bankname;
+    EXIT WHEN v_cursor%NOTFOUND;
+    DBMS_OUTPUT.PUT_LINE(to_char(v_bankid) || '   ' || v_bankname );
+  END LOOP;
+  CLOSE v_cursor;
+END;
+/
+====================================================
+package specification
+
+CREATE OR REPLACE PACKAGE comm_package IS
+  g_comm NUMBER := 0.10;  --initialized to 0.10
+  PROCEDURE reset_comm
+  (p_comm   IN  NUMBER);
+END comm_package;
+/
+
+package body
+
+CREATE OR REPLACE PACKAGE BODY comm_package
+IS
+   FUNCTION  validate_comm (p_comm IN NUMBER)
+    RETURN BOOLEAN
+   IS
+     v_max_comm    NUMBER;
+   BEGIN
+     SELECT    MAX(COMMISSION_PCT)
+      INTO     v_max_comm
+      FROM     employees;
+     IF   p_comm > v_max_comm THEN RETURN(FALSE);
+     ELSE   RETURN(TRUE);
+     END IF;
+   END validate_comm;
+   PROCEDURE  reset_comm (p_comm   IN  NUMBER)
+   IS
+   BEGIN
+    IF  validate_comm(p_comm)
+     THEN   
+    DBMS_OUTPUT.PUT_LINE
+('Valid Commission ' || p_comm);
+  
+    g_comm:=p_comm;  --reset global variable
+    ELSE
+       DBMS_OUTPUT.PUT_LINE ('Valid Commission  return False' );
+   
+     RAISE_APPLICATION_ERROR(-20210,'Invalid commission');
+    END IF;
+   END reset_comm;
+ END comm_package;
+ /
+
+invoke package
+EXECUTE comm_package.reset_comm(0.15)
+==============================================
+CREATE PACKAGE emp_bonus AS
+PROCEDURE calc_bonus (p_deptno emp.deptno%TYPE);
+END emp_bonus;
+/
+CREATE PACKAGE BODY emp_bonus AS
+PROCEDURE calc_bonus
+(p_deptno emp.deptno%TYPE) IS
+BEGIN
+DBMS_OUTPUT.PUT_LINE
+('Employees hired on ' || p_deptno || ' get bonus.');
+END;
+END emp_bonus;
+/
+
+EXECUTE emp_bonus.calc_bonus(45)
+====================================================
+CREATE OR REPLACE PACKAGE v_package AS
+   -- Adds a bank
+   PROCEDURE addBank(p_bankid   bank.bankid%type,
+   p_bankname bank.bankname%type);
+  
+   -- Removes a bank
+   PROCEDURE delBank(p_bankid   bank.bankid%type);
+   --Lists all banks
+   PROCEDURE listBanks;
+ 
+END v_package;
+/
+------------------------------------------------------------------------------
+CREATE OR REPLACE PACKAGE BODY v_package AS
+   PROCEDURE addBank(p_bankid   bank.bankid%type,
+   p_bankname bank.bankname%type)
+   IS
+   BEGIN
+      INSERT INTO bank (bankid,bankname) 
+         VALUES(p_bankid, p_bankname);
+   END addBank;
+  
+   PROCEDURE delBank(p_bankid   bank.bankid%type) IS
+   BEGIN
+       DELETE FROM bank
+         WHERE bankid = p_bankid;
+   END delBank;
+
+   PROCEDURE listBanks IS
+   CURSOR c_bank is
+      SELECT  bankname FROM bank;
+   TYPE c_list is TABLE OF bank.bankname%type;
+   name_list c_list := c_list();
+   counter integer :=0;
+   BEGIN
+      FOR n IN c_bank LOOP
+      counter := counter +1;
+      name_list.extend;
+      name_list(counter)  := n.bankname;
+      dbms_output.put_line('Bank(' ||counter|| ')'||name_list(counter));
+      END LOOP;
+   END listBanks;
+END v_package;
+/
+---------------------------------------------------------------
+DECLARE
+   code bank.bankid%type:= 1021;
+BEGIN
+     v_package.addBank(1021, 'Maharashtra Bank');
+       v_package.addBank(1022, 'Mahila Bank');
+       v_package.listBanks;
+       v_package.delBank(code);
+       v_package.listBanks;
+END;
+/
+=========================================
+bodiless package
+CREATE OR REPLACE PACKAGE global_consts IS
+  mile_2_kilo    CONSTANT  NUMBER  :=  1.6093;
+  kilo_2_mile    CONSTANT  NUMBER  :=  0.6214;
+  yard_2_meter   CONSTANT  NUMBER  :=  0.9144;
+  meter_2_yard   CONSTANT  NUMBER  :=  1.0936;
+END global_consts;
+/
+
+EXECUTE DBMS_OUTPUT.PUT_LINE('20 miles = '||20* 		global_consts.mile_2_kilo||' km')
+==============================
+Access public variable from standalone procedure
+CREATE OR REPLACE PROCEDURE meter_to_yard 				        (p_meter IN NUMBER, p_yard OUT NUMBER)
+IS
+BEGIN
+  p_yard := p_meter * global_consts.meter_2_yard;
+END meter_to_yard;
+/
+VARIABLE yard NUMBER
+EXECUTE  meter_to_yard (1, :yard)
+PRINT yard
+=====================================================
+CREATE OR REPLACE TRIGGER secure_emp
+ BEFORE INSERT ON emp
+ BEGIN
+  IF (TO_CHAR(SYSDATE,'DY') IN ('SAT','SUN')) OR
+     (TO_CHAR(SYSDATE,'HH24:MI') 										  NOT BETWEEN '08:00' AND '18:00')
+   THEN RAISE_APPLICATION_ERROR (-20500,'You may 			       insert into EMPLOYEES table only 									during business hours.');
+  END IF;
+END;
+/
+==========================================================
+CREATE OR REPLACE TRIGGER secure_emp
+BEFORE INSERT OR UPDATE OR DELETE ON emp
+BEGIN
+ IF (TO_CHAR(SYSDATE,'DY') IN ('SAT','SUN')) OR
+     (TO_CHAR(SYSDATE,'HH24:MI') 	NOT BETWEEN '08:00' AND '18:00')
+
+ THEN
+   IF 	 DELETING THEN 
+     RAISE_APPLICATION_ERROR (-20502,'You may delete 	from      	     EMPLOYEES table only during business hours.');
+   ELSIF  INSERTING THEN
+     RAISE_APPLICATION_ERROR (-20500,'You may insert into 
+	     EMPLOYEES table only during business hours.');
+   ELSIF   UPDATING ('SALARY') THEN
+     RAISE_APPLICATION_ERROR (-20503,'You may update 
+		   SALARY only during business hours.');
+   ELSE
+     RAISE_APPLICATION_ERROR (-20504,'You may update 
+            EMPLOYEES table only during normal hours.');
+   END IF;
+  END IF;
+END;
+/
+===========================================================
+CREATE OR REPLACE TRIGGER restrict_bankname
+  BEFORE  INSERT OR UPDATE OF bankname ON bank
+    FOR EACH ROW
+    BEGIN
+      IF  (:NEW.bankname IN ('ICICI', 'Mahila Bank'))
+         THEN
+        RAISE_APPLICATION_ERROR (-20202,'ICICI and Mahila Bank cannot be inserted or updated');
+     END IF;
+END;
+/
+=====================================================
+create table deal(dealId number(10) primary key, value number(10));
+create table dealaudit(username varchar(100), timestamp date, old_dealId number(10), new_dealId number(10), old_value number(10), new_value number(10));
+CREATE OR REPLACE TRIGGER audit_deal_values
+AFTER DELETE OR INSERT OR UPDATE ON deal FOR EACH ROW
+BEGIN
+  INSERT INTO dealaudit (username, timestamp,
+      old_dealId, new_dealId, old_value,
+     new_value)
+  VALUES (USER, SYSDATE, :OLD.dealId,
+       :NEW.dealId, :OLD.value,
+       :NEW.value);
+END;
+/
+
+
+==============================================================
+CREATE OR REPLACE TRIGGER derive_tradinglimit
+  BEFORE INSERT OR UPDATE OF tradinglimit ON trader
+  FOR EACH ROW
+  WHEN (NEW.bankId = 45)
+BEGIN
+  IF  INSERTING
+     THEN :NEW.tradinglimit := 10000;
+  ELSIF :OLD.tradinglimit IS NULL
+     THEN :NEW.tradinglimit := 50000;
+  ELSE 
+    :NEW.tradinglimit := :OLD.tradinglimit + 45000;
+  END IF;
+END;
+/
+=======================================
+CREATE OR REPLACE VIEW dealview AS
+  SELECT * FROM deal
+  UNION ALL
+  SELECT * FROM deal_global
+/
+ 
+select * from dealview;
+
+CREATE OR REPLACE TRIGGER dealtrg
+  instead OF INSERT ON dealview
+  FOR each ROW
+BEGIN
+  IF (:New.dealid>100) THEN
+    INSERT INTO deal_global values(:new.dealid,:new.value);
+  ELSE
+    INSERT INTO deal values(:new.dealid,:new.value);
+  END IF;
+END;
+/
+
+
+create table deal_global(dealid number(10), value number(10));
+insert into deal_global values(120,45678);
+insert into deal_global values(198,234567);
+
+insert into dealview values(1982,67890);
+
+select * from bank_global;
+====================================================
+Triggers on db level
+create table log_trig_table(user_id varchar2(100), log_date date, action varchar2(100));
+
+CREATE OR REPLACE TRIGGER logon_trig
+AFTER LOGON  ON  DATABASE
+BEGIN
+ INSERT INTO log_trig_table(user_id, log_date, action)
+ VALUES (USER, SYSDATE, 'Logging on');
+END;
+/
+
+CREATE OR REPLACE TRIGGER logoff_trig
+BEFORE LOGOFF  ON  DATABASE
+BEGIN
+ INSERT INTO log_trig_table(user_id, log_date, action)
+ VALUES (USER, SYSDATE, 'Logging off');
+END;
+/
+===========================================
+
+CREATE OR REPLACE TRIGGER check_salary
+  BEFORE INSERT OR UPDATE OF salary,deptno
+  ON emp
+  FOR EACH ROW
+  WHEN (NEW.deptno > 45)
+DECLARE
+  v_minsalary emp.salary%TYPE;
+  v_maxsalary emp.salary%TYPE;
+BEGIN
+  SELECT MIN(salary), MAX(salary)
+   INTO 	v_minsalary, v_maxsalary
+   FROM	 emp
+   WHERE deptno = :NEW.deptno;
+   dbms_output.put_line('Minimum Salary'||v_minsalary||'Maximum Salary'||v_maxsalary);
+  IF :NEW.salary < v_minsalary OR
+     :NEW.salary > v_maxsalary THEN
+     RAISE_APPLICATION_ERROR(-20505,'Out of range');
+  END IF; 			
+END;
+/
+===========================================
+Object creation
+CREATE OR REPLACE TYPE EmployeeObj AS OBJECT (
+  first_name  VARCHAR2(50),
+  last_name   VARCHAR2(50),
+  date_of_birth  DATE,
+  salary Number(10),
+  MEMBER FUNCTION getBonus RETURN NUMBER
+);
+/
+
+CREATE OR REPLACE TYPE BODY EmployeeObj AS
+  MEMBER FUNCTION getBonus RETURN NUMBER AS
+  BEGIN
+    RETURN Trunc(salary*0.2);
+  END getBonus;
+END;
+/
+
+CREATE TABLE V_Employee (
+  id      NUMBER(10) NOT NULL,
+  employee  EmployeeObj
+);
+
+INSERT INTO V_Employee
+VALUES (1, EmployeeObj('John','Doe',
+        TO_DATE('01/01/1999','DD/MM/YYYY'),50000));
+COMMIT;
+
+DECLARE
+  v_employee  EmployeeObj;
+BEGIN
+  v_employee := EmployeeObj('Jane','Doe',
+              TO_DATE('01/01/1999','DD/MM/YYYY'),50000);
+  INSERT INTO V_Employee VALUES (2, v_employee);
+  COMMIT;
+END;
+/
+
+SELECT e.id,
+       e.employee.first_name,
+       e.employee.getBonus() bonus
+FROM   V_Employee e;
+==============================================
+- Object definition
+CREATE OR REPLACE TYPE hello_there IS OBJECT
+( who VARCHAR2(20)
+, CONSTRUCTOR FUNCTION hello_there
+  RETURN SELF AS RESULT
+, CONSTRUCTOR FUNCTION hello_there
+  ( who VARCHAR2 )
+  RETURN SELF AS RESULT
+, MEMBER FUNCTION get_who RETURN VARCHAR2
+, MEMBER PROCEDURE set_who (who VARCHAR2)
+, MEMBER PROCEDURE to_string )
+INSTANTIABLE NOT FINAL;
+/
+
+-- Object Body
+CREATE OR REPLACE TYPE BODY hello_there IS
+  
+  CONSTRUCTOR FUNCTION hello_there RETURN SELF AS RESULT IS
+    hello HELLO_THERE := hello_there('Generic Object.');
+  BEGIN
+    self := hello;
+    RETURN;
+  END hello_there;
+  
+  CONSTRUCTOR FUNCTION hello_there (who VARCHAR2) RETURN SELF AS RESULT IS
+  BEGIN
+    self.who := who;
+    RETURN;
+  END hello_there;
+
+  MEMBER FUNCTION get_who RETURN VARCHAR2 IS
+  BEGIN
+    RETURN self.who;
+  END get_who;
+
+  MEMBER PROCEDURE set_who (who VARCHAR2) IS
+  BEGIN
+    self.who := who;
+  END set_who;
+  
+  MEMBER PROCEDURE to_string IS
+  BEGIN
+    dbms_output.put_line('Hello '||self.who);
+  END to_string;
+  
+END;
+/
+
+DECLARE
+   hello HELLO_THERE := hello_there;           -- you can also use hello_there()
+BEGIN
+   hello.to_string();
+END;
+/
+=============================================
+-- Object definition
+CREATE OR REPLACE TYPE hello_there IS OBJECT
+( who VARCHAR2(20)
+, CONSTRUCTOR FUNCTION hello_there
+  RETURN SELF AS RESULT
+, CONSTRUCTOR FUNCTION hello_there
+  ( who VARCHAR2 )
+  RETURN SELF AS RESULT
+, MEMBER FUNCTION get_who RETURN VARCHAR2
+, MEMBER PROCEDURE set_who (who VARCHAR2)
+, MEMBER PROCEDURE to_string )
+INSTANTIABLE NOT FINAL;
+/
+
+-- Object Body
+CREATE OR REPLACE TYPE BODY hello_there IS
+  
+  CONSTRUCTOR FUNCTION hello_there RETURN SELF AS RESULT IS
+    hello HELLO_THERE := hello_there('Generic Object.');
+  BEGIN
+    self := hello;
+    RETURN;
+  END hello_there;
+  
+  CONSTRUCTOR FUNCTION hello_there (who VARCHAR2) RETURN SELF AS RESULT IS
+  BEGIN
+    self.who := who;
+    RETURN;
+  END hello_there;
+
+  MEMBER FUNCTION get_who RETURN VARCHAR2 IS
+  BEGIN
+    RETURN self.who;
+  END get_who;
+
+  MEMBER PROCEDURE set_who (who VARCHAR2) IS
+  BEGIN
+    self.who := who;
+  END set_who;
+  
+  MEMBER PROCEDURE to_string IS
+  BEGIN
+    dbms_output.put_line('Hello '||self.who);
+  END to_string;
+  
+END;
+/
+
+DECLARE
+   hello HELLO_THERE := hello_there;           -- you can also use hello_there()
+BEGIN
+   hello.to_string();
+END;
+/
+=======================================
+- Object type definition
+CREATE OR REPLACE TYPE item_object IS OBJECT
+( item_title    VARCHAR2(60),
+  item_subtitle VARCHAR2(60),
+  CONSTRUCTOR FUNCTION item_object RETURN SELF AS RESULT,
+  -- overloaded constructor
+  CONSTRUCTOR FUNCTION item_object (item_title VARCHAR2, item_subtitle VARCHAR2) RETURN SELF AS RESULT,
+  STATIC FUNCTION get_item_object (item_id NUMBER) RETURN ITEM_OBJECT,
+  MEMBER FUNCTION to_string RETURN VARCHAR2 
+)
+INSTANTIABLE NOT FINAL;
+/
+
+-- Object type body
+CREATE OR REPLACE TYPE BODY item_object IS
+  
+  CONSTRUCTOR FUNCTION item_object RETURN SELF AS RESULT IS
+    item ITEM_OBJECT := item_object('Generic Title','Generic Subtitle');
+  BEGIN
+    self := item;
+    RETURN;
+  END item_object;
+  
+  CONSTRUCTOR FUNCTION item_object
+  (item_title VARCHAR2, item_subtitle VARCHAR2)
+  RETURN SELF AS RESULT IS
+  BEGIN
+    self.item_title := item_title;
+    self.item_subtitle := item_subtitle;
+    RETURN;
+  END item_object;
+
+  STATIC FUNCTION get_item_object (item_id NUMBER) RETURN ITEM_OBJECT IS
+    item ITEM_OBJECT;
+    CURSOR c (item_id_in NUMBER) IS
+      SELECT item_title, item_subtitle FROM item WHERE item_id = item_id_in;  
+  BEGIN
+    FOR i IN c (item_id) LOOP
+      item := item_object(i.item_title,i.item_subtitle);     -- we create the object here and return it
+    END LOOP;
+    RETURN item;
+  END get_item_object;
+
+  MEMBER FUNCTION to_string RETURN VARCHAR2 IS
+  BEGIN
+    RETURN '['||self.item_title||']['||self.item_subtitle||']';
+  END to_string;
+  
+END;
+/
+
+-- Test whether the static constructor works.
+BEGIN
+  dbms_output.put_line(item_object.get_item_object(1050).to_string);
+END;
+/
+
+
+Note just to break this down the item_object runs the constructor and creates the object, it passes back the 
+ref to the object, using the ref you then run get_item_object passing id 1050, you get back the object 
+ref which you now run the to_string method of that ref. it a bit like this
+
+ref := item_object();
+ref.get_item_object(1050);
+ref.to_string();
+
+but its all in one statement
+
+===================================================
+
+CREATE TYPE v_address_type AS OBJECT ( 
+   street          VARCHAR2(30),
+   city            VARCHAR2(20),
+   state           CHAR(2),
+   postal_code     VARCHAR2(6) );
+/
+CREATE TYPE v_employee_type AS OBJECT (
+  employee_id       NUMBER(6),
+  first_name        VARCHAR2(20),
+  last_name         VARCHAR2(25),
+  email             VARCHAR2(25),
+  phone_number      VARCHAR2(20),
+  hire_date         DATE,
+  job_id            VARCHAR2(10),
+  salary            NUMBER(8,2),
+  commission_pct    NUMBER(2,2),
+  manager_id        NUMBER(6),
+  department_id     NUMBER(4),
+  address           v_address_type,
+  MAP MEMBER FUNCTION get_idno RETURN NUMBER,
+  MEMBER PROCEDURE display_address ( SELF IN OUT NOCOPY v_employee_type ) );
+/
+CREATE TYPE BODY v_employee_type AS
+  MAP MEMBER FUNCTION get_idno RETURN NUMBER IS
+  BEGIN
+    RETURN employee_id;
+  END;
+  MEMBER PROCEDURE display_address ( SELF IN OUT NOCOPY v_employee_type ) IS
+  BEGIN
+    DBMS_OUTPUT.PUT_LINE(first_name || ' '  || last_name);
+    DBMS_OUTPUT.PUT_LINE(address.street);
+    DBMS_OUTPUT.PUT_LINE(address.city || ', '  || address.state || ' ' ||
+                         address.postal_code);   
+  END;
+END;
+/
+CREATE TABLE employee_tab OF v_employee_type;
+
+
+-- Requires Ex. 3-1
+DECLARE
+  emp v_employee_type; -- emp is atomically null
+BEGIN
+-- call the constructor for employee_typ
+  emp := v_employee_type(315, 'Francis', 'Logan', 'FLOGAN',
+        '415.555.0100', '01-MAY-04', 'SA_MAN', 11000, .15, 101, 110, 
+         v_address_type('376 Mission', 'San Francisco', 'CA', '94222'));
+  DBMS_OUTPUT.PUT_LINE(emp.first_name || ' ' || emp.last_name); -- display details
+  emp.display_address();  -- call object method to display details
+END;
+/
+
+
+
+DECLARE
+  emp v_employee_type;
+BEGIN
+  emp := v_employee_type(315, 'Francis', 'Logan', 'FLOGAN',
+        '415.555.0100', '01-MAY-04', 'SA_MAN', 11000, .15, 101, 110, 
+         v_address_type('376 Mission', 'San Francisco', 'CA', '94222'));
+  DBMS_OUTPUT.PUT_LINE(emp.first_name || ' '  || emp.last_name);
+  DBMS_OUTPUT.PUT_LINE(emp.address.street);
+  DBMS_OUTPUT.PUT_LINE(emp.address.city || ', '  ||emp. address.state || ' ' ||
+                       emp.address.postal_code);   
+END;
+/
+
+
+DECLARE
+  emp employee_typ;
+BEGIN
+  INSERT INTO employee_tab VALUES (employee_typ(310, 'Evers', 'Boston', 'EBOSTON',
+   '617.555.0100', '01-AUG-04', 'SA_REP', 9000, .15, 101, 110, 
+    address_typ('123 Main', 'San Francisco', 'CA', '94111')) );
+  INSERT INTO employee_tab VALUES (employee_typ(320, 'Martha', 'Dunn', 'MDUNN',
+    '650.555.0150', '30-SEP-04', 'AC_MGR', 12500, 0, 101, 110,
+    address_typ('123 Broadway', 'Redwood City', 'CA', '94065')) );
+END;
+/
+SELECT VALUE(e) from employee_tab e;
+
+
+
+
+DECLARE
+  emp employee_typ;
+BEGIN
+  SELECT VALUE(e) INTO emp FROM employee_tab e WHERE e.employee_id = 310;
+  emp.display_address();
+END;
+/
+
+DECLARE
+  emp employee_typ;
+BEGIN
+  INSERT INTO employee_tab VALUES (employee_typ(370, 'Robert', 'Myers', 'RMYERS',
+   '415.555.0150', '07-NOV-04', 'SA_REP', 8800, .12, 101, 110, 
+    address_typ('540 Fillmore', 'San Francisco', 'CA', '94011')) );
+  UPDATE employee_tab e SET e.address.street = '1040 California' 
+     WHERE e.employee_id = 370;
+  DELETE FROM employee_tab e WHERE e.employee_id = 310;
+END;
+/
+SELECT VALUE(e) from employee_tab e;
+
+DECLARE
+  emp         employee_typ;
+  emp_ref REF employee_typ;
+BEGIN
+  SELECT REF(e) INTO emp_ref FROM employee_tab e WHERE e.employee_id = 370;
+  UPDATE employee_tab e 
+    SET e.address = address_typ('8701 College', 'Oakland', 'CA', '94321')
+    WHERE REF(e) = emp_ref;
+END;
+/
+
+DECLARE 
+  emp           employee_typ;
+  emp_ref   REF employee_typ;
+  emp_name      VARCHAR2(50);
+BEGIN
+  SELECT REF(e) INTO emp_ref FROM employee_tab e WHERE e.employee_id = 370;
+  -- the following assignment raises an error, not allowed in PL/SQL  emp := DEREF(emp_ref);  --  cannot use DEREF in procedural statements
+  emp_name := emp.first_name || ' ' || emp.last_name;
+  DBMS_OUTPUT.PUT_LINE(emp_name);
+END;
+/
+=====================================
+UTL_FILE
+conn / as sysdba
+grant execute on SYS.UTL_FILE to system;
+GRANT CREATE ANY DIRECTORY TO SYSTEM;
+CREATE OR REPLACE DIRECTORY testdir as 'D:\oracleutl\';
+Manually create dir
+ GRANT READ, WRITE ON DIRECTORY testdir TO SYSTEM;
+ DESC ALL_DIRECTORIES;
+SELECT DIRECTORY_NAME, DIRECTORY_PATH FROM ALL_DIRECTORIES;
+
+
+DECLARE
+    -- declare file pointer variable
+    fp UTL_FILE.FILE_TYPE;
+BEGIN
+    -- open file
+    fp := UTL_FILE.FOPEN('TESTDIR', 'file1.txt', 'w');
+    -- write data into file
+    UTL_FILE.PUTF(fp, 'knowprogram.com');
+    -- close file
+    UTL_FILE.FCLOSE(fp);
+END;
+/
+
+==========================================
+DECLARE
+    -- declare file pointer variable
+    fp UTL_FILE.FILE_TYPE;
+BEGIN
+    -- open file
+    fp := UTL_FILE.FOPEN('VTRAININGDIR', 'login.txt', 'w');
+    -- write data into file
+    UTL_FILE.PUTF(fp, 'I Logged In');
+    -- close file
+    UTL_FILE.FCLOSE(fp);
+END;
+/
+
+
+
+========================================
+DECLARE
+    -- declare file pointer variable
+    fp UTL_FILE.FILE_TYPE;
+    -- declare a cursor to fetch data from table
+    CURSOR c1 IS SELECT empname FROM emp;
+BEGIN
+    -- open file
+    fp := UTL_FILE.FOPEN('TESTDIR', 'file2.txt', 'w');
+    -- loop to fetch data
+    FOR i IN c1
+    LOOP
+        -- write data into file
+        UTL_FILE.PUTF(fp, i.empname);
+    END LOOP;
+    -- close file
+    UTL_FILE.FCLOSE(fp);
+END;
+/
+=========================================
+DECLARE
+    -- declare file pointer variable
+    fp UTL_FILE.FILE_TYPE;
+    -- declare a cursor to fetch data from table
+    CURSOR c1 IS SELECT name FROM trader;
+BEGIN
+    -- open file
+    fp := UTL_FILE.FOPEN('VTRAININGDIR', 'trader.txt', 'a');
+    -- loop to fetch data
+    UTL_FILE.PUT_LINE(fp, 'Employee Name');
+    FOR i IN c1
+    LOOP
+        -- write data into file
+        
+        UTL_FILE.PUT_LINE(fp, i.name);
+    END LOOP;
+    -- close file
+    UTL_FILE.FCLOSE(fp);
+END;
+/
+
+
+========================================
+DECLARE
+    -- declare file pointer variable
+    fp UTL_FILE.FILE_TYPE;
+    -- declare a cursor to fetch data from table
+    CURSOR c1 IS SELECT empname FROM emp;
+BEGIN
+    -- open file
+    fp := UTL_FILE.FOPEN('TESTDIR', 'file3.txt', 'w');
+    -- loop to fetch data
+    FOR i IN c1
+    LOOP
+        -- write data into file
+        UTL_FILE.PUTF(fp, 'Employee Name: %s\n', i.empname);
+    END LOOP;
+    -- close file
+    UTL_FILE.FCLOSE(fp);
+END;
+/
+=========================================
+DECLARE
+    -- declare file pointer variable
+    fp UTL_FILE.FILE_TYPE;
+    -- declare a cursor to fetch data from table
+    CURSOR c1 IS SELECT * FROM emp;
+BEGIN
+    -- open file
+    fp := UTL_FILE.FOPEN('VTRAININGDIR', 'employee.txt', 'w');
+    -- loop to fetch data
+    FOR i IN c1
+    LOOP
+        -- write data into file
+        UTL_FILE.PUT_LINE(fp, i.empname||' '||i.salary||' '||i.deptno);
+    END LOOP;
+    -- close file
+    UTL_FILE.FCLOSE(fp);
+END;
+/
+===========================================
+CREATE OR REPLACE PROCEDURE export_to_csv
+IS
+   v_file     UTL_FILE.file_type;
+   v_string   VARCHAR2 (4000);
+
+   CURSOR c_emp
+   IS
+      SELECT empno,
+             empname,
+             deptno,
+             salary
+             
+        FROM emp;
+BEGIN
+   v_file :=
+      UTL_FILE.fopen ('VTRAININGDIR',
+                      'empdata.csv',
+                      'w',
+                      1000);
+
+   -- if you do not want heading then remove below two lines
+   v_string := 'Emp Code, Emp Name, Dept, Salary';
+   UTL_FILE.put_line (v_file, v_string);
+
+   FOR cur IN c_emp
+   LOOP
+      v_string :=
+            cur.empno
+         || ','
+         || cur.empname
+         || ','
+         || cur.deptno
+         || ','
+         || cur.salary;
+
+      UTL_FILE.put_line (v_file, v_string);
+
+   END LOOP;
+   UTL_FILE.fclose (v_file);
+
+EXCEPTION
+   WHEN OTHERS
+   THEN
+      IF UTL_FILE.is_open (v_file)
+      THEN
+         UTL_FILE.fclose (v_file);
+      END IF;
+END;
+/
+BEGIN
+   export_to_csv;
+END;
+/
+=========================================
+LOB
+CREATE TABLE product_reviews
+(
+  product_id      NUMBER    PRIMARY KEY,
+  product_review  CLOB
+);
+===========================
+DECLARE
+    vstart NUMBER := 1;
+    bytelen NUMBER := 32000;
+    blob_pointer BLOB;
+    l_output utl_file.file_type;
+	len NUMBER;
+	my_vr RAW(32000);
+	x NUMBER;
+ 
+  BEGIN
+ 
+    -- define output directory
+    l_output := utl_file.fopen('TEMP_DIR', 'axis.png','wb', 32760);
+	vstart := 1;
+	bytelen := 32000;
+
+  	  -- get length of blob
+		SELECT dbms_lob.getlength(symbol)
+		INTO len
+		FROM irs.currency
+		WHERE CODE ='INR';
+
+		-- save blob length
+		x := len;
+    SELECT symbol INTO blob_pointer FROM irs.currency WHERE CODE ='INR';
+ 
+ -- if small enough for a single write
+IF len < 32760 THEN
+
+	utl_file.put_raw(l_output,blob_pointer);
+	utl_file.fflush(l_output);
+ELSE -- write in pieces
+	vstart := 1;
+
+WHILE vstart < len and bytelen > 0
+
+LOOP
+
+   dbms_lob.read(blob_pointer,bytelen,vstart,my_vr);
+
+   utl_file.put_raw(l_output,my_vr);
+   utl_file.fflush(l_output); 
+
+   -- set the start position for the next cut
+   vstart := vstart + bytelen;
+
+   -- set the end position if less than 32000 bytes
+   x := x - bytelen;
+   IF x < 32000 THEN
+      bytelen := x;
+   END IF;
+end loop;
+
+END IF;
+utl_file.fclose(l_output);
+
+   
+  END;
+  /
+===================================
+DECLARE
+    vstart NUMBER := 1;
+    bytelen NUMBER := 32000;
+    blob_pointer BLOB;
+    l_output utl_file.file_type;
+	len NUMBER;
+	my_vr RAW(32000);
+	x NUMBER;
+ 
+  BEGIN
+ 
+    -- define output directory
+    l_output := utl_file.fopen('VTRAININGDIR', 'axis.png','wb', 32760);
+	vstart := 1;
+	bytelen := 32000;
+
+  	  -- get length of blob
+		SELECT dbms_lob.getlength(symbol)
+		INTO len
+		FROM irs.currency
+		WHERE CODE ='INR';
+
+		-- save blob length
+		x := len;
+    SELECT symbol INTO blob_pointer FROM irs.currency WHERE CODE ='INR';
+ 
+ -- if small enough for a single write
+IF len < 32760 THEN
+
+	utl_file.put_raw(l_output,blob_pointer);
+	utl_file.fflush(l_output);
+ELSE -- write in pieces
+	vstart := 1;
+
+WHILE vstart < len and bytelen > 0
+
+LOOP
+
+   dbms_lob.read(blob_pointer,bytelen,vstart,my_vr);
+
+   utl_file.put_raw(l_output,my_vr);
+   utl_file.fflush(l_output); 
+
+   -- set the start position for the next cut
+   vstart := vstart + bytelen;
+
+   -- set the end position if less than 32000 bytes
+   x := x - bytelen;
+   IF x < 32000 THEN
+      bytelen := x;
+   END IF;
+end loop;
+
+END IF;
+utl_file.fclose(l_output);
+
+   
+  END;
+  /
+
+=============================
+Collection
+
+Nested Table
+
+DECLARE
+    TYPE subject IS TABLE OF VARCHAR(15); 
+    TYPE teacher IS TABLE OF VARCHAR2(20);
+    subjectnames subject; 
+    subjectteacher teacher; 
+    summ integer; 
+BEGIN
+ 
+    -- adding subject and its teachers to the table
+    subjectnames := subject('PLSQL', 'SELENIUM', 'JMETER'); 
+    subjectteacher:= teacher('Sashi', 'Mala', 'Mukund');
+ 
+    -- returns count of number of elements in nested table
+    summ:= subjectteacher.count;
+ 
+    -- printing the content to the console
+    dbms_output.put_line('Total Number of Teachers: '|| summ); 
+    FOR i IN 1 .. summ LOOP 
+         dbms_output.put_line('Subject:'||subjectnames(i)||', Teacher:' || subjectteacher(i)); 
+    end loop; 
+END;
+/
+=========================================
+DECLARE
+    TYPE project IS TABLE OF VARCHAR(15); 
+    TYPE client IS TABLE OF VARCHAR2(20);
+    projects project; 
+    clients client; 
+    total integer; 
+BEGIN
+ 
+    -- adding project and its client to the table
+    projects := project('webstore', 'socialnetwork', 'IRS'); 
+    clients:= client('Amazon', 'Facebook', 'RBS');
+ 
+    -- returns count of number of elements in nested table
+    total := clients.count;
+ 
+    -- printing the content to the console
+    dbms_output.put_line('Total Number of Clients: '|| total); 
+    FOR i IN 1 .. total LOOP 
+         dbms_output.put_line('Project:'||projects(i)||', Client:' || clients(i)); 
+    end loop; 
+END;
+/
+
+===========================================
+DECLARE
+    TYPE customer IS TABLE OF VARCHAR(15); 
+    TYPE account IS TABLE OF integer;
+    customers customer; 
+    accounts account; 
+    customer_count integer; 
+BEGIN
+ 
+    -- adding subject and its teachers to the table
+    customers := customer('Ajay', 'Sunil', 'Sheela'); 
+    accounts:= account(34567, 636365, 21845);
+ 
+    -- returns count of number of elements in nested table
+    customer_count:= customers.count;
+ 
+    -- printing the content to the console
+    dbms_output.put_line('Total Number of Customers: '|| customer_count); 
+    FOR i IN 1 .. customer_count LOOP 
+         dbms_output.put_line('Account:'||accounts(i)||', Customer:' || customers(i)); 
+    end loop; 
+END;
+/
+
+
+==========================================
+index by table
+
+DECLARE
+    TYPE age IS TABLE OF NUMBER INDEX BY VARCHAR(25); 
+    age_empl age; 
+    employee VARCHAR(25); 
+BEGIN
+ 
+    -- adding employee details to the table
+    age_empl('Sam') := 30; 
+    age_empl('Venu') := 35; 
+ 
+    -- printing the table contents in the console
+    employee := age_empl.FIRST; 
+    WHILE employee IS NOT null LOOP 
+         dbms_output.put_line 
+         ('Employee name is ' || employee || ' and age is ' || TO_CHAR(age_empl(employee))); 
+         employee := age_empl.NEXT(employee); 
+     END LOOP; 
+END; 
+/
+============================================
+--Associative Array
+
+DECLARE
+  TYPE world_type IS RECORD (
+    capital  VARCHAR2(50),
+    countryname      VARCHAR2(50)
+  );
+  
+  TYPE country_tab IS TABLE OF world_type
+    INDEX BY BINARY_INTEGER;
+
+  t_country country_tab;
+
+BEGIN
+
+  -- Populate lookup
+  t_country(1).capital := 'New Delhi';
+  t_country(1).countryname    := 'India';
+  t_country(2).capital := 'New York';
+  t_country(2).countryname    := 'USA';
+  t_country(3).capital := 'Singapore';
+  t_country(3).countryname    := 'Singapore';
+  t_country(4).capital := 'Riyadh';
+  t_country(4).countryname    := 'Saudi Arabia';
+  
+  -- Find country name for Capital "Riyadh"
+  << lookup >>
+  FOR i IN 1 .. 4 LOOP
+    IF t_country(i).capital = 'Riyadh' THEN
+      DBMS_OUTPUT.PUT_LINE( 'Capital='||t_country(i).capital||'Country Name='||t_country(i).countryname);
+      EXIT lookup;
+    END IF;
+  END LOOP;
+
+END;
+/
+=============================================
+DECLARE
+  TYPE deal_type IS TABLE OF NUMBER INDEX BY VARCHAR2(64);
+  rbs_deal deal_type;
+  investment_deal deal_type;
+  howmany NUMBER;
+  which VARCHAR2(64);
+
+BEGIN
+  rbs_deal('2022-02-02') := 20.5;
+  rbs_deal('2022-05-12') := 18.5;
+  rbs_deal('2022-07-02') := 22.5;
+  howmany := rbs_deal('2022-05-12');
+  dbms_output.put_line(howmany);
+   investment_deal('2022-04-12') := 12.5;
+   investment_deal('2022-03-04') := 16.5; -- Creates new entry
+   investment_deal('2022-03-04') := 27.8; -- Replaces previous value
+ 
+-- printing the table
+   which := investment_deal.FIRST;
+dbms_output.put_line
+      ('investment Deal of ' || which || ' is ' || TO_CHAR(investment_deal(which)));
+  
+ which := investment_deal.FIRST;
+   WHILE which IS NOT null LOOP
+      dbms_output.put_line
+      ('Deal ' || which || ' is ' || TO_CHAR(investment_deal(which)));
+      which := investment_deal.NEXT(which);
+   END LOOP;
+END;
+/
+============================================
+DECLARE 
+   TYPE software IS TABLE OF NUMBER INDEX BY VARCHAR2(20); 
+   software_list software; 
+   name   VARCHAR2(20); 
+BEGIN 
+   -- adding elements to the table 
+   software_list('oracle') := 1521; 
+   software_list('mysql') := 3306; 
+   software_list('postgresql') := 5432; 
+   software_list('mongodb') := 27017;  
+   
+   -- printing the table 
+   name := software_list.FIRST; 
+   WHILE name IS NOT null LOOP 
+      dbms_output.put_line 
+      ('Software of ' || name || ' is ' || TO_CHAR(software_list(name))); 
+      name := software_list.NEXT(name); 
+   END LOOP; 
+END; 
+/
+===========================
+Varray
+DECLARE
+-- In the varray, put an upper limit on the number of elements
+TYPE dcodes_var IS VARRAY(20) OF INTEGER;
+TYPE dnames_var IS VARRAY(20) OF VARCHAR2(30);
+dept_codes dcodes_var;
+dept_names dnames_var;
+total number;
+BEGIN
+-- Because dnames is declared as VARRAY(20),
+-- you can put up to 3 elements in the constructor
+dept_codes:=dcodes_var(10,20,30,40);
+dept_names := dnames_var('Shipping','Sales','Finance','Payroll');
+total := dept_names.count;
+   dbms_output.put_line('Total '|| total || 'Departments');
+   FOR i in 1 .. total LOOP
+      dbms_output.put_line('Departmen Code'|| dept_codes(i)|| 'DepartmentName' || dept_names(i) );
+   END LOOP;
+
+END;
+/
