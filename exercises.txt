@@ -2213,3 +2213,153 @@ total := dept_names.count;
 
 END;
 /
+==============================
+CREATE TABLE MYLOB ( ID NUMBER, PHOTO BLOB ) ; 
+CREATE TABLE TEMP_BFILE( B_FILE BFILE) ; 
+insert into temp_bfile values ( bfilename('TESTDIR','butterfly.jpg')); 
+
+declare 
+tmp_blob blob default EMPTY_BLOB(); 
+tmp_bfile bfile:=null; 
+dest_offset integer:=1; 
+src_offset integer:=1; 
+begin 
+select b_file into tmp_bfile from temp_bfile; 
+DBMS_LOB.OPEN (tmp_bfile, DBMS_LOB.FILE_READONLY); 
+dbms_lob.createtemporary(tmp_blob, TRUE); 
+DBMS_LOB.LOADBLOBFROMFILE(tmp_blob,tmp_bfile,DBMS_LOB.LOBMAXSIZE,dest_offset,src_offset); 
+insert into mylob values(1,tmp_blob); 
+DBMS_LOB.CLOSE(tmp_bfile); 
+commit; 
+end; 
+/
+
+
+declare 
+tmp_blob blob default empty_blob(); 
+begin 
+dbms_lob.createtemporary(tmp_blob, true); 
+select photo into tmp_blob from mylob; 
+sys.retrieve_lob_to_file (tmp_blob, 'MYDIR','mypic1.jpg'); 
+end; 
+/ 
+
+CREATE OR REPLACE PROCEDURE retrieve_lob_to_file(temp_blob in BLOB, file_path in varchar2, file_name in varchar2) IS 
+data_buffer RAW (32767); 
+position INTEGER := 1; 
+filehandle utl_file.file_type; 
+error_number NUMBER; 
+error_message VARCHAR2(100); 
+blob_length INTEGER; 
+chunk_size BINARY_INTEGER := 32767; 
+BEGIN 
+blob_length := dbms_lob.getlength(temp_blob); 
+
+filehandle := utl_file.fopen(file_path, file_name,'wb', 1024); 
+
+WHILE position < blob_length LOOP 
+
+dbms_lob.read (temp_blob, chunk_size, position, data_buffer); 
+
+utl_file.put_raw (filehandle, data_buffer); 
+position := position + chunk_size; 
+data_buffer := null; 
+END LOOP; 
+
+utl_file.fclose(filehandle); 
+
+
+EXCEPTION 
+WHEN OTHERS THEN 
+BEGIN 
+error_number := sqlcode; 
+error_message := substr(sqlerrm ,1 ,100); 
+dbms_output.put_line('Error #: ' || error_number); 
+dbms_output.put_line('Error Message: ' || error_message); 
+utl_file.fclose_all; 
+END; 
+END; 
+/ 
+================================================
+CREATE TABLE Currency ( Code NUMBER, Symbol BLOB ) ; 
+CREATE TABLE Currency_BFILE( B_FILE BFILE) ; 
+insert into Currency_BFILE values ( bfilename('VTRAININGDIR','rupees.png')); 
+--- storing the image to table
+declare 
+tmp_blob blob default EMPTY_BLOB(); 
+tmp_bfile bfile:=null; 
+dest_offset integer:=1; 
+src_offset integer:=1; 
+begin 
+select b_file into tmp_bfile from Currency_BFILE ; 
+DBMS_LOB.OPEN (tmp_bfile, DBMS_LOB.FILE_READONLY); 
+dbms_lob.createtemporary(tmp_blob, TRUE); 
+DBMS_LOB.LOADBLOBFROMFILE(tmp_blob,tmp_bfile,DBMS_LOB.LOBMAXSIZE,dest_offset,src_offset); 
+insert into Currency values(2,tmp_blob); 
+DBMS_LOB.CLOSE(tmp_bfile); 
+commit; 
+end; 
+/
+
+-- retrieving image from table
+
+declare 
+tmp_blob blob default empty_blob(); 
+begin 
+dbms_lob.createtemporary(tmp_blob, true); 
+select Symbol into tmp_blob from Currency where code=1; 
+retrieve_lob_to_file (tmp_blob, 'VTRAININGDIR','vdollar.jpg'); 
+end; 
+/ 
+
+CREATE OR REPLACE PROCEDURE retrieve_lob_to_file(temp_blob in BLOB, file_path in varchar2, file_name in varchar2) IS 
+data_buffer RAW (32767); 
+position INTEGER := 1; 
+filehandle utl_file.file_type; 
+error_number NUMBER; 
+error_message VARCHAR2(100); 
+blob_length INTEGER; 
+chunk_size BINARY_INTEGER := 32767; 
+BEGIN 
+blob_length := dbms_lob.getlength(temp_blob); 
+
+filehandle := utl_file.fopen(file_path, file_name,'wb', 1024); 
+
+WHILE position < blob_length LOOP 
+
+dbms_lob.read (temp_blob, chunk_size, position, data_buffer); 
+
+utl_file.put_raw (filehandle, data_buffer); 
+position := position + chunk_size; 
+data_buffer := null; 
+END LOOP; 
+
+utl_file.fclose(filehandle); 
+
+
+EXCEPTION 
+WHEN OTHERS THEN 
+BEGIN 
+error_number := sqlcode; 
+error_message := substr(sqlerrm ,1 ,100); 
+dbms_output.put_line('Error #: ' || error_number); 
+dbms_output.put_line('Error Message: ' || error_message); 
+utl_file.fclose_all; 
+END; 
+END; 
+/ 
+==================================
+Create or Replace Function func_refcur(p_deptno number)
+RETURN sys_refcursor
+IS
+ rc_value sys_refcursor;
+BEGIN
+ open rc_value FOR Select * from emp where deptno= p_deptno;
+ RETURN rc_value;
+END;
+/
+
+--weak ref cursor
+select func_refcur(45) from dual;
+=============================================
+
